@@ -69,8 +69,8 @@ class Preview(BaseParser):
 
 
 if __name__ == "__main__":
-    parser = Preview(page="07.01.2021")
+    parser = Preview(page="08.01.2021")
     parser.get_links()
-    print(parser._Preview__links.__len__())
-    parser.save_to_json("links_07.01.2021")
-    parser.save_to_file("links_07.01.2021")
+    #print(parser._Preview__links.__len__())
+    parser.save_to_json("tmp_links_08.01.2021")
+    parser.save_to_file("tmp_links_08.01.2021")

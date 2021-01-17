@@ -5,12 +5,28 @@ import requests
 from bs4 import BeautifulSoup as BS
 from abc import ABC, abstractmethod
 from datetime import datetime as dt
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from tnp.parser import DEFAULT_USER_AGENT, HOST, PREVIEW_URL, BASE_DIR
 
+class _Base(type):
+    def __init__(cls, name, bases, attr_dict):
+        super().__init__(name, bases, attr_dict)
 
-class BaseParser(ABC):
+    def __call__(cls, *args, **kwargs):
+        obj = super().__call__(*args, **kwargs)
+        if cls.__name__ == "Preview":
+            cls.__bases__[0].page = obj._Preview__num_page
+        return obj
+
+class BaseMeta(metaclass=_Base):
+    """Base Meta class""" 
+
+class BaseParser(BaseMeta):
     def _get_page(self, url):
+        if hasattr(self, "page"):
+            if self.page < 1:
+                raise ValueError("Page is < 1")
         response = requests.get(url)
         if response.status_code == 200:
             return BS(response.text, features="html.parser")
@@ -58,6 +74,8 @@ class Preview(BaseParser):
                             self.__links.append(link.get("href"))
             else:
                 self.__links = []
+
+class NewsParser()
 
     def save_to_file(self, name):
         path = os.path.join(BASE_DIR, name + ".bin")

@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime as dt
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
-from tnp.parser import DEFAULT_USER_AGENT, HOST, PREVIEW_URL, BASE_DIR
+from tnp.parser import HOST, PREVIEW_URL, BASE_DIR
 
 class _Base(type):
     def __init__(cls, name, bases, attr_dict):
@@ -25,8 +25,15 @@ class BaseMeta(metaclass=_Base):
 class BaseParser(BaseMeta):
     def _get_page(self, url):
         if hasattr(self, "page"):
-            if self.page < 1:
-                raise ValueError("Page is < 1")
+            min_date = dt.strptime("03.10.2000", "%d.%m.%Y")
+            page_date = dt.strptime(self.page, "%d.%m.%Y")
+            max_date = dt.now()
+            #max_date = f"{dt.now():%d.%m.%Y}"
+            print(self.page)
+            if page_date < min_date: 
+                raise ValueError("Page is < 03.10.2000")
+            if page_date > max_date:
+                raise ValueError("Page is > today")
         response = requests.get(url)
         if response.status_code == 200:
             return BS(response.text, features="html.parser")
@@ -75,8 +82,32 @@ class Preview(BaseParser):
             else:
                 self.__links = []
 
-class NewsParser()
+    def __iter__(self):
+        self.__cursor = 0
+        return self
 
+    def __next__(self):
+        if self.__cursor == len(self.__links):
+            raise StopIteration
+        try:
+            return self.__links[self.__cursor]
+        finally:
+            self.__cursor +=1
+
+    def __getitem__(self, index):
+        try:
+            if isinstance(index, int):
+                demand = self.__links[index]
+                return demand
+            elif isinstance(index, slice):
+                obj = Preview()
+                self._Preview__links = self.__links[index]
+                return obj
+            else:
+                raise TypeError
+        except TypeError:
+            print("List indices must be integer or slices")
+        
     def save_to_file(self, name):
         path = os.path.join(BASE_DIR, name + ".bin")
         pickle.dump(self.__links, open(path, "wb"))
@@ -85,10 +116,40 @@ class NewsParser()
         path = os.path.join(BASE_DIR, name + ".json")
         json.dump(self.__links, open(path, "w"))
 
+class NewsParser(BaseParser):
+    def __init__(self, url):
+        self._url = url
+        self.news = {}
+    
+    def get_news(self):
+        try:
+            html = self._get_page(self._url)
+        except ValueError as error:
+            print(error)
+        else:
+            box = html.find("div", attrs={"class": "b-article"})
+            if box is not None:
+                self.news["head"] = box.find("h1").text
+                box_date = box.find("time", attrs={"itemprop": "datePublished"})
+                if box_date is not None:
+                    self.news["date"] = dt.fromisoformat(box.date.get("dt")).timestamp()
+                list_img = box.find_all("img")
+                self.news["scr_img"] = []
+                if list_img is not None:
+                    for img in list_img:
+                        self.news["src_img"].append(img.attrs["src"])
+                if box.find("div", attrs={"id": "article_body"}) is not None:
+                    text_block = box.find("div", attrs={"id": "article_body"}).text
+                    self.news["text"] = text_block
+                  
+
 
 if __name__ == "__main__":
-    parser = Preview(page="08.01.2021")
+    parser = Preview(page="23.01.2021")
     parser.get_links()
-    #print(parser._Preview__links.__len__())
-    parser.save_to_json("tmp_links_08.01.2021")
-    parser.save_to_file("tmp_links_08.01.2021")
+    print(parser._Preview__links.__len__())
+    #print(parser[1])
+    print(parser[1:4])
+    #print(parser["key"])
+    # parser.save_to_json("tmp_links_08.01.2021")
+    # parser.save_to_file("tmp_links_08.01.2021")
